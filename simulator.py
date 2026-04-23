@@ -112,3 +112,5 @@ class Simulator:
             self.cpu.set_dvfs_state(2)
         else:
             self.cpu.set_dvfs_state(1) # Power Save
+
+# Feature branch: Finalizing analytical models.
