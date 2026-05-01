@@ -2,13 +2,15 @@ import collections
 from models import Task, CPU
 
 class Simulator:
-    def __init__(self, tasks, cpu, algorithm="round_robin", time_quantum=2):
-        self.all_tasks = sorted(tasks, key=lambda x: x.arrival_time)
+    def __init__(self, tasks, cpu, algorithm="round_robin", time_quantum=2, is_baseline=False):
+        # Clone tasks to avoid modifying original state across runs
+        self.all_tasks = sorted([t.clone() for t in tasks], key=lambda x: x.arrival_time)
         self.ready_queue = collections.deque()
         self.completed_tasks = []
         self.cpu = cpu
         self.algorithm = algorithm
         self.time_quantum = time_quantum
+        self.is_baseline = is_baseline
         self.current_time = 0
         
         # Performance history for plotting
@@ -17,6 +19,7 @@ class Simulator:
             "cpu_temp": [],
             "cpu_freq": [],
             "cpu_power": [],
+            "cumulative_energy": [],
             "queue_length": [],
             "active_task": []
         }
@@ -73,6 +76,7 @@ class Simulator:
             self.history["cpu_temp"].append(self.cpu.temperature)
             self.history["cpu_freq"].append(self.cpu.frequency)
             self.history["cpu_power"].append(self.cpu.get_power())
+            self.history["cumulative_energy"].append(self.cpu.total_energy_consumed)
             self.history["queue_length"].append(len(self.ready_queue))
             self.history["active_task"].append(current_task.id if current_task else None)
 
@@ -88,29 +92,37 @@ class Simulator:
         """
         Custom Power-Aware Policy implementation:
         
-        1. Thermal Throttling (Safety First):
+        1. Baseline Mode: 
+           Always stay at Max Frequency/Voltage.
+        
+        2. Thermal Throttling (Safety First):
            If temperature exceeds 75°C, immediately drop to lowest frequency/voltage.
         
-        2. Load-Based DVFS (Efficiency):
-           - High Workload (>4 tasks in queue): Max Frequency (2.4 GHz) for throughput.
+        3. Load-Based DVFS (Efficiency):
+           - High Workload (>4 tasks in queue): Max Frequency (2.4 GHz).
            - Medium Workload (3-4 tasks): High Frequency (2.0 GHz).
            - Low Workload (1-2 tasks): Medium Frequency (1.6 GHz).
-           - Idle (0 tasks): Low Frequency (0.8 GHz) to minimize static leakage.
+           - Idle (0 tasks): Power Save (1.2 GHz).
         """
+        # Baseline: No dynamic adjustments
+        if self.is_baseline:
+            self.cpu.set_dvfs_state(len(self.cpu.dvfs_states) - 1)
+            return
+
         # Thermal Throttling
         if self.cpu.temperature > 75:
             self.cpu.set_dvfs_state(0)
             return
 
-        # DVFS based on ready queue length (Workload intensity)
+        # DVFS based on ready queue length
         q_len = len(self.ready_queue)
         if q_len > 4:
-            self.cpu.set_dvfs_state(4) # Max State
+            self.cpu.set_dvfs_state(4)
         elif q_len > 2:
             self.cpu.set_dvfs_state(3)
         elif q_len > 0:
             self.cpu.set_dvfs_state(2)
         else:
-            self.cpu.set_dvfs_state(1) # Power Save
+            self.cpu.set_dvfs_state(1)
 
 # Feature branch: Finalizing analytical models.

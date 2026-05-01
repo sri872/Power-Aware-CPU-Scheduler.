@@ -12,6 +12,10 @@ class Task:
         self.waiting_time = 0
         self.turnaround_time = 0
 
+    def clone(self):
+        """Returns a fresh copy of the task with reset state."""
+        return Task(self.id, self.arrival_time, self.burst_time, self.priority)
+
     def __repr__(self):
         return f"Task(ID={self.id}, Arrival={self.arrival_time}, Remaining={self.remaining_time})"
 
